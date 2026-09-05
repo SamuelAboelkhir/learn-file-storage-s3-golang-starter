@@ -50,12 +50,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	randomSlice := make([]byte, 32)
-	rand.Read(randomSlice)
-
-	randomBase64 := base64.RawURLEncoding.EncodeToString(randomSlice)
-
-	assetPath := getAssetPath(randomBase64, mediaType)
+	assetPath := getAssetPath(mediaType)
 	assetDiskPath := cfg.getAssetDiskPath(assetPath)
 
 	dst, err := os.Create(assetDiskPath)
