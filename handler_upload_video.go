@@ -1,13 +1,12 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"os"
+	"path"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -67,14 +66,14 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tempDir, err := os.CreateTemp("", "tubely-upload.mp4")
+	tempFile, err := os.CreateTemp("", "tubely-upload.mp4")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to create file on server", err)
 		return
 	}
-	defer os.Remove(tempDir.Name())
-	defer tempDir.Close()
-	if _, err = io.Copy(tempDir, file); err != nil {
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+	if _, err = io.Copy(tempFile, file); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error saving file", err)
 		return
 	}
@@ -85,12 +84,40 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	fastEncodedVideoPath, err := processVideoForFastStart(tempFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to fast encode MP4", err)
+		return
+	}
+
+	fastEncodedVideo, err := os.Open(fastEncodedVideoPath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to load fast encode MP4", err)
+		return
+	}
+
+	directory := ""
+	aspectRatio, err := getVideoAspectRatio(tempFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error determining aspect ratio", err)
+		return
+	}
+	switch aspectRatio {
+	case "16:9":
+		directory = "landscape"
+	case "9:16":
+		directory = "portrait"
+	default:
+		directory = "other"
+	}
+
 	fileKey := getAssetPath(mimeType)
+	fileKey = path.Join(directory, fileKey)
 
 	_, err = cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket:      aws.String(cfg.s3Bucket),
 		Key:         aws.String(fileKey),
-		Body:        file,
+		Body:        fastEncodedVideo,
 		ContentType: aws.String(mimeType),
 	})
 	if err != nil {
