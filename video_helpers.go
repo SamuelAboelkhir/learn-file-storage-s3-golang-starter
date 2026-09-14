@@ -70,28 +70,3 @@ func processVideoForFastStart(filePath string) (string, error) {
 
 	return fastEncodingFile, nil
 }
-
-func generatePresignedURL(s3Client *s3.Client, bucket, key string, expireTime time.Duration) (string, error) {
-	presignClient := s3.NewPresignClient(s3Client)
-	presignedObject, err := presignClient.PresignGetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	}, s3.WithPresignExpires(expireTime))
-	if err != nil {
-		return "", err
-	}
-	return presignedObject.URL, nil
-}
-
-func (cfg *apiConfig) dbVideoToSignedVideo(video database.Video) (database.Video, error) {
-	if video.VideoURL == nil {
-		return video, nil
-	}
-	splitURL := strings.Split(*video.VideoURL, ",")
-	signedURL, err := generatePresignedURL(cfg.s3Client, splitURL[0], splitURL[1], time.Minute*5)
-	if err != nil {
-		return database.Video{}, err
-	}
-	video.VideoURL = &signedURL
-	return video, nil
-}
