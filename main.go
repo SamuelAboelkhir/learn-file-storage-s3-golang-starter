@@ -25,6 +25,7 @@ type apiConfig struct {
 	s3CfDistribution string
 	port             string
 	s3Client         *s3.Client
+	cdnDomainName    string
 }
 
 func main() {
@@ -80,6 +81,11 @@ func main() {
 		log.Fatal("PORT environment variable is not set")
 	}
 
+	cdnDomainName := os.Getenv("CDN_DOMAIN_NAME")
+	if port == "" {
+		log.Fatal("CDN_DOMAIN_NAME environment variable is not set")
+	}
+
 	awsConfig, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(os.Getenv("S3_REGION")))
 	if err != nil {
 		log.Fatalf("Couldn't load config")
@@ -98,6 +104,7 @@ func main() {
 		s3CfDistribution: s3CfDistribution,
 		port:             port,
 		s3Client:         s3Client,
+		cdnDomainName:    cdnDomainName,
 	}
 
 	err = cfg.ensureAssetsDir()

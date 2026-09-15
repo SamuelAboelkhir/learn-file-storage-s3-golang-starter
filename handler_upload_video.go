@@ -125,7 +125,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	newVideoUrl := cfg.getObjectURL(fileKey)
+	newVideoUrl := cfg.cdnDomainName + fileKey
 	video.VideoURL = &newVideoUrl
 
 	err = cfg.db.UpdateVideo(video)
